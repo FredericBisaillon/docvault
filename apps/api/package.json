@@ -4,18 +4,19 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-
     "db:up": "docker compose up -d db",
     "db:migrate": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/001_init.sql && docker exec -i docvault-db psql -U docvault -d docvault < migrations/002_indexes.sql",
     "db:seed": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/seed.sql",
     "db:reset": "bash scripts/db-reset.sh",
-
     "dev:clean": "pnpm db:reset && pnpm dev",
-
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.6.1",
+    "@fastify/swagger-ui": "^5.2.4",
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@sinclair/typebox": "^0.34.47",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.2",
     "pg": "^8.16.3"

@@ -1,114 +1,195 @@
 import type { FastifyInstance } from "fastify";
-import { createDocumentWithVersion } from "../repositories/documents.repo.js";
-import { createDocumentVersion } from "../repositories/documents.repo.js";
-import { getDocumentWithLatestVersion } from "../repositories/documents.repo.js";
-import { getUserById } from "../repositories/users.repo.js";
-import { listDocumentVersions } from "../repositories/documents.repo.js";
-import { setDocumentArchived } from "../repositories/documents.repo.js";
+import { Type } from "@sinclair/typebox";
 
+import {
+    createDocumentWithVersion,
+    createDocumentVersion,
+    getDocumentWithLatestVersion,
+    listDocumentVersions,
+    setDocumentArchived,
+} from "../repositories/documents.repo.js";
+import { getUserById } from "../repositories/users.repo.js";
+
+const ErrorSchema = Type.Object({ error: Type.String() });
+
+const DocIdParams = Type.Object({ id: Type.String() });
+
+const CreateDocumentBody = Type.Object({
+    ownerId: Type.String(),
+    title: Type.String({ minLength: 1, maxLength: 200 }),
+    content: Type.String({ minLength: 1 }),
+});
+
+const CreateVersionBody = Type.Object({
+    content: Type.String({ minLength: 1 }),
+});
+
+const DocumentSchema = Type.Object({
+    id: Type.String(),
+    owner_id: Type.String(),
+    title: Type.String(),
+    is_archived: Type.Boolean(),
+    created_at: Type.String(),
+    updated_at: Type.String(),
+});
+
+const VersionSchema = Type.Object({
+    id: Type.String(),
+    document_id: Type.String(),
+    version_number: Type.Integer(),
+    content: Type.String(),
+    created_at: Type.String(),
+});
 
 export async function documentsRoutes(app: FastifyInstance) {
-  app.post("/documents", async (req, reply) => {
-    const body = req.body as {
-      ownerId?: string;
-      title?: string;
-      content?: string;
-    };
+    // POST /documents
+    app.post(
+        "/documents",
+        {
+            schema: {
+                tags: ["documents"],
+                body: CreateDocumentBody,
+                response: {
+                    201: Type.Object({
+                        document: DocumentSchema,
+                        version: VersionSchema,
+                    }),
+                    404: ErrorSchema,
+                },
+            },
+        },
+        async (req, reply) => {
+            const body = req.body as { ownerId: string; title: string; content: string };
 
-    if (!body.ownerId || !body.title || !body.content) {
-      return reply
-        .code(400)
-        .send({ error: "ownerId, title and content are required" });
-    }
+            const owner = await getUserById(body.ownerId);
+            if (!owner) return reply.code(404).send({ error: "owner not found" });
 
-    const owner = await getUserById(body.ownerId);
-    if (!owner) {
-      return reply.code(404).send({ error: "owner not found" });
-    }
+            const result = await createDocumentWithVersion(body);
+            return reply.code(201).send(result);
+        }
+    );
 
-    const result = await createDocumentWithVersion({
-      ownerId: body.ownerId,
-      title: body.title,
-      content: body.content,
-    });
+    // GET /documents/:id (latest version)
+    app.get(
+        "/documents/:id",
+        {
+            schema: {
+                tags: ["documents"],
+                params: DocIdParams,
+                response: {
+                    200: Type.Object({
+                        document: DocumentSchema,
+                        latestVersion: VersionSchema,
+                    }),
+                    404: ErrorSchema,
+                },
+            },
+        },
+        async (req, reply) => {
+            const params = req.params as { id: string };
 
-    return reply.code(201).send(result);
-  });
-  app.get("/documents/:id", async (req, reply) => {
-  const params = req.params as { id?: string };
-  if (!params.id) {
-    return reply.code(400).send({ error: "id is required" });
-  }
+            const result = await getDocumentWithLatestVersion(params.id);
+            if (!result) return reply.code(404).send({ error: "document not found" });
 
-  const result = await getDocumentWithLatestVersion(params.id);
-  if (!result) {
-    return reply.code(404).send({ error: "document not found" });
-  }
+            return reply.code(200).send(result);
+        }
+    );
 
-  return reply.code(200).send(result);
-});
+    // GET /documents/:id/versions
+    app.get(
+        "/documents/:id/versions",
+        {
+            schema: {
+                tags: ["versions"],
+                params: DocIdParams,
+                response: {
+                    200: Type.Object({ versions: Type.Array(VersionSchema) }),
+                },
+            },
+        },
+        async (req, reply) => {
+            const params = req.params as { id: string };
+            const versions = await listDocumentVersions(params.id);
+            return reply.code(200).send({ versions });
+        }
+    );
 
-app.get("/documents/:id/versions", async (req, reply) => {
-  const params = req.params as { id?: string };
-  if (!params.id) return reply.code(400).send({ error: "id is required" });
+    // POST /documents/:id/versions
+    app.post(
+        "/documents/:id/versions",
+        {
+            schema: {
+                tags: ["versions"],
+                params: DocIdParams,
+                body: CreateVersionBody,
+                response: {
+                    201: Type.Object({ version: VersionSchema }),
+                    404: ErrorSchema,
+                },
+            },
+        },
+        async (req, reply) => {
+            const params = req.params as { id: string };
+            const body = req.body as { content: string };
 
-  const versions = await listDocumentVersions(params.id);
-  return reply.code(200).send({ versions });
-});
+            try {
+                const version = await createDocumentVersion({
+                    documentId: params.id,
+                    content: body.content,
+                });
+                return reply.code(201).send({ version });
+            } catch (err: any) {
+                if (err?.message === "DOCUMENT_NOT_FOUND") {
+                    return reply.code(404).send({ error: "document not found" });
+                }
+                throw err;
+            }
+        }
+    );
 
+    // PATCH /documents/:id/archive
+    app.patch(
+        "/documents/:id/archive",
+        {
+            schema: {
+                tags: ["documents"],
+                params: DocIdParams,
+                response: {
+                    200: Type.Object({ document: DocumentSchema }),
+                    404: ErrorSchema,
+                },
+            },
+        },
+        async (req, reply) => {
+            const params = req.params as { id: string };
 
-app.post("/documents/:id/versions", async (req, reply) => {
-  const params = req.params as { id?: string };
-  const body = req.body as { content?: string };
+            const updated = await setDocumentArchived({ documentId: params.id, isArchived: true });
+            if (!updated) return reply.code(404).send({ error: "document not found" });
 
-  if (!params.id) {
-    return reply.code(400).send({ error: "id is required" });
-  }
-  if (!body.content) {
-    return reply.code(400).send({ error: "content is required" });
-  }
+            return reply.code(200).send({ document: updated });
+        }
+    );
 
-  try {
-    const version = await createDocumentVersion({
-      documentId: params.id,
-      content: body.content,
-    });
+    // PATCH /documents/:id/unarchive
+    app.patch(
+        "/documents/:id/unarchive",
+        {
+            schema: {
+                tags: ["documents"],
+                params: DocIdParams,
+                response: {
+                    200: Type.Object({ document: DocumentSchema }),
+                    404: ErrorSchema,
+                },
+            },
+        },
+        async (req, reply) => {
+            const params = req.params as { id: string };
 
-    return reply.code(201).send({ version });
-  } catch (err: any) {
-    if (err?.message === "DOCUMENT_NOT_FOUND") {
-      return reply.code(404).send({ error: "document not found" });
-    }
-    throw err;
-  }
-});
+            const updated = await setDocumentArchived({ documentId: params.id, isArchived: false });
+            if (!updated) return reply.code(404).send({ error: "document not found" });
 
-app.patch("/documents/:id/archive", async (req, reply) => {
-  const params = req.params as { id?: string };
-  if (!params.id) return reply.code(400).send({ error: "id is required" });
-
-  const updated = await setDocumentArchived({
-    documentId: params.id,
-    isArchived: true,
-  });
-
-  if (!updated) return reply.code(404).send({ error: "document not found" });
-
-  return reply.code(200).send({ document: updated });
-});
-
-app.patch("/documents/:id/unarchive", async (req, reply) => {
-  const params = req.params as { id?: string };
-  if (!params.id) return reply.code(400).send({ error: "id is required" });
-
-  const updated = await setDocumentArchived({
-    documentId: params.id,
-    isArchived: false,
-  });
-
-  if (!updated) return reply.code(404).send({ error: "document not found" });
-
-  return reply.code(200).send({ document: updated });
-});
-
+            return reply.code(200).send({ document: updated });
+        }
+    );
 }

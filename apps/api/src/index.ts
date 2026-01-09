@@ -10,8 +10,8 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 async function main() {
   const app = buildServer();
 
-  app.register(usersRoutes);
-  app.register(documentsRoutes);
+  
+  
 
 
   try {
