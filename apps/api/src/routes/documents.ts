@@ -4,6 +4,8 @@ import { createDocumentVersion } from "../repositories/documents.repo.js";
 import { getDocumentWithLatestVersion } from "../repositories/documents.repo.js";
 import { getUserById } from "../repositories/users.repo.js";
 import { listDocumentVersions } from "../repositories/documents.repo.js";
+import { setDocumentArchived } from "../repositories/documents.repo.js";
+
 
 export async function documentsRoutes(app: FastifyInstance) {
   app.post("/documents", async (req, reply) => {
@@ -79,6 +81,34 @@ app.post("/documents/:id/versions", async (req, reply) => {
     }
     throw err;
   }
+});
+
+app.patch("/documents/:id/archive", async (req, reply) => {
+  const params = req.params as { id?: string };
+  if (!params.id) return reply.code(400).send({ error: "id is required" });
+
+  const updated = await setDocumentArchived({
+    documentId: params.id,
+    isArchived: true,
+  });
+
+  if (!updated) return reply.code(404).send({ error: "document not found" });
+
+  return reply.code(200).send({ document: updated });
+});
+
+app.patch("/documents/:id/unarchive", async (req, reply) => {
+  const params = req.params as { id?: string };
+  if (!params.id) return reply.code(400).send({ error: "id is required" });
+
+  const updated = await setDocumentArchived({
+    documentId: params.id,
+    isArchived: false,
+  });
+
+  if (!updated) return reply.code(404).send({ error: "document not found" });
+
+  return reply.code(200).send({ document: updated });
 });
 
 }

@@ -97,9 +97,13 @@ export async function getDocumentWithLatestVersion(documentId: string): Promise<
   return { document, latestVersion };
 }
 
-export async function listDocumentsWithLatestVersionByOwner(ownerId: string): Promise<
-  Array<{ document: Document; latestVersion: DocumentVersion }>
-> {
+
+export async function listDocumentsWithLatestVersionByOwner(input: {
+  ownerId: string;
+  includeArchived?: boolean;
+}): Promise<Array<{ document: Document; latestVersion: DocumentVersion }>> {
+  const includeArchived = input.includeArchived ?? false;
+
   const res = await pool.query<
     Document & {
       v_id: string;
@@ -121,9 +125,10 @@ export async function listDocumentsWithLatestVersionByOwner(ownerId: string): Pr
     JOIN document_versions v
       ON v.document_id = d.id
     WHERE d.owner_id = $1
+      AND ($2::boolean = true OR d.is_archived = false)
     ORDER BY d.id, v.version_number DESC
     `,
-    [ownerId]
+    [input.ownerId, includeArchived]
   );
 
   return res.rows.map((row) => ({
@@ -144,6 +149,8 @@ export async function listDocumentsWithLatestVersionByOwner(ownerId: string): Pr
     },
   }));
 }
+
+
 
 export async function createDocumentVersion(input: {
   documentId: string;
@@ -210,4 +217,22 @@ export async function listDocumentVersions(documentId: string): Promise<Document
   );
 
   return res.rows;
+}
+
+export async function setDocumentArchived(input: {
+  documentId: string;
+  isArchived: boolean;
+}): Promise<Document | null> {
+  const res = await pool.query<Document>(
+    `
+    UPDATE documents
+    SET is_archived = $2,
+        updated_at = now()
+    WHERE id = $1
+    RETURNING *
+    `,
+    [input.documentId, input.isArchived]
+  );
+
+  return res.rows[0] ?? null;
 }
