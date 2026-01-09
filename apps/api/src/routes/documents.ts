@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createDocumentWithVersion } from "../repositories/documents.repo.js";
+import { getDocumentWithLatestVersion } from "../repositories/documents.repo.js";
 import { getUserById } from "../repositories/users.repo.js";
 
 export async function documentsRoutes(app: FastifyInstance) {
@@ -29,4 +30,17 @@ export async function documentsRoutes(app: FastifyInstance) {
 
     return reply.code(201).send(result);
   });
+  app.get("/documents/:id", async (req, reply) => {
+  const params = req.params as { id?: string };
+  if (!params.id) {
+    return reply.code(400).send({ error: "id is required" });
+  }
+
+  const result = await getDocumentWithLatestVersion(params.id);
+  if (!result) {
+    return reply.code(404).send({ error: "document not found" });
+  }
+
+  return reply.code(200).send(result);
+});
 }
