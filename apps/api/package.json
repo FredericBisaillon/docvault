@@ -1,16 +1,20 @@
 {
   "name": "api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "build": "tsc -p tsconfig.json"
+
+    "db:up": "docker compose up -d db",
+    "db:migrate": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/001_init.sql",
+    "db:seed": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/seed.sql",
+    "db:reset": "bash scripts/db-reset.sh",
+
+    "dev:clean": "pnpm db:reset && pnpm dev",
+
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "dotenv": "^17.2.3",
     "fastify": "^5.6.2",
@@ -21,6 +25,5 @@
     "@types/pg": "^8.16.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
-  },
-  "type": "module"
+  }
 }
