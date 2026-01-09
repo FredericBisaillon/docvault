@@ -145,3 +145,69 @@ export async function listDocumentsWithLatestVersionByOwner(ownerId: string): Pr
   }));
 }
 
+export async function createDocumentVersion(input: {
+  documentId: string;
+  content: string;
+}): Promise<DocumentVersion> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1) lock the document row to serialize concurrent version writes
+    const lockRes = await client.query<{ id: string }>(
+      `SELECT id FROM documents WHERE id = $1 FOR UPDATE`,
+      [input.documentId]
+    );
+
+    if (lockRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      throw new Error("DOCUMENT_NOT_FOUND");
+    }
+
+    // 2) compute next version number safely within the transaction
+    const nextRes = await client.query<{ next_version: number }>(
+      `
+      SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version
+      FROM document_versions
+      WHERE document_id = $1
+      `,
+      [input.documentId]
+    );
+
+    const nextVersion = nextRes.rows[0]!.next_version;
+
+    // 3) insert the new version
+    const verRes = await client.query<DocumentVersion>(
+      `
+      INSERT INTO document_versions (document_id, version_number, content)
+      VALUES ($1, $2, $3)
+      RETURNING *
+      `,
+      [input.documentId, nextVersion, input.content]
+    );
+
+    const version = verRes.rows[0]!;
+    await client.query("COMMIT");
+    return version;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
+  const res = await pool.query<DocumentVersion>(
+    `
+    SELECT *
+    FROM document_versions
+    WHERE document_id = $1
+    ORDER BY version_number DESC
+    `,
+    [documentId]
+  );
+
+  return res.rows;
+}

@@ -1,7 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { createDocumentWithVersion } from "../repositories/documents.repo.js";
+import { createDocumentVersion } from "../repositories/documents.repo.js";
 import { getDocumentWithLatestVersion } from "../repositories/documents.repo.js";
 import { getUserById } from "../repositories/users.repo.js";
+import { listDocumentVersions } from "../repositories/documents.repo.js";
 
 export async function documentsRoutes(app: FastifyInstance) {
   app.post("/documents", async (req, reply) => {
@@ -43,4 +45,40 @@ export async function documentsRoutes(app: FastifyInstance) {
 
   return reply.code(200).send(result);
 });
+
+app.get("/documents/:id/versions", async (req, reply) => {
+  const params = req.params as { id?: string };
+  if (!params.id) return reply.code(400).send({ error: "id is required" });
+
+  const versions = await listDocumentVersions(params.id);
+  return reply.code(200).send({ versions });
+});
+
+
+app.post("/documents/:id/versions", async (req, reply) => {
+  const params = req.params as { id?: string };
+  const body = req.body as { content?: string };
+
+  if (!params.id) {
+    return reply.code(400).send({ error: "id is required" });
+  }
+  if (!body.content) {
+    return reply.code(400).send({ error: "content is required" });
+  }
+
+  try {
+    const version = await createDocumentVersion({
+      documentId: params.id,
+      content: body.content,
+    });
+
+    return reply.code(201).send({ version });
+  } catch (err: any) {
+    if (err?.message === "DOCUMENT_NOT_FOUND") {
+      return reply.code(404).send({ error: "document not found" });
+    }
+    throw err;
+  }
+});
+
 }
