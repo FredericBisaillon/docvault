@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
 
     "db:up": "docker compose up -d db",
-    "db:migrate": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/001_init.sql",
+    "db:migrate": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/001_init.sql && docker exec -i docvault-db psql -U docvault -d docvault < migrations/002_indexes.sql",
     "db:seed": "docker exec -i docvault-db psql -U docvault -d docvault < migrations/seed.sql",
     "db:reset": "bash scripts/db-reset.sh",
 
