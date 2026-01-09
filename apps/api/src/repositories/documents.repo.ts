@@ -150,8 +150,6 @@ export async function listDocumentsWithLatestVersionByOwner(input: {
   }));
 }
 
-
-
 export async function createDocumentVersion(input: {
   documentId: string;
   content: string;
@@ -235,4 +233,80 @@ export async function setDocumentArchived(input: {
   );
 
   return res.rows[0] ?? null;
+}
+
+export async function listDocumentsWithLatestVersionByOwnerPaged(input: {
+  ownerId: string;
+  includeArchived?: boolean;
+  limit?: number;
+  cursor?: string; // last seen document id
+}): Promise<{
+  items: Array<{ document: Document; latestVersion: DocumentVersion }>;
+  nextCursor: string | null;
+}> {
+  const includeArchived = input.includeArchived ?? false;
+  const limit = Math.min(Math.max(input.limit ?? 10, 1), 50);
+  const cursor = input.cursor ?? null;
+
+  // Fetch one extra to know if there is a next page
+  const pageSize = limit + 1;
+
+  const res = await pool.query<
+    Document & {
+      v_id: string;
+      v_document_id: string;
+      v_version_number: number;
+      v_content: string;
+      v_created_at: string;
+    }
+  >(
+    `
+    WITH latest AS (
+      SELECT DISTINCT ON (d.id)
+        d.*,
+        v.id AS v_id,
+        v.document_id AS v_document_id,
+        v.version_number AS v_version_number,
+        v.content AS v_content,
+        v.created_at AS v_created_at
+      FROM documents d
+      JOIN document_versions v
+        ON v.document_id = d.id
+      WHERE d.owner_id = $1
+        AND ($2::boolean = true OR d.is_archived = false)
+        AND ($3::uuid IS NULL OR d.id > $3::uuid)
+      ORDER BY d.id, v.version_number DESC
+    )
+    SELECT *
+    FROM latest
+    ORDER BY id
+    LIMIT $4
+    `,
+    [input.ownerId, includeArchived, cursor, pageSize]
+  );
+
+  const mapped = res.rows.map((row) => ({
+    document: {
+      id: row.id,
+      owner_id: row.owner_id,
+      title: row.title,
+      is_archived: row.is_archived,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    },
+    latestVersion: {
+      id: row.v_id,
+      document_id: row.v_document_id,
+      version_number: row.v_version_number,
+      content: row.v_content,
+      created_at: row.v_created_at,
+    },
+  }));
+
+  const hasNext = mapped.length > limit;
+  const items = hasNext ? mapped.slice(0, limit) : mapped;
+
+  const nextCursor = hasNext ? items[items.length - 1]!.document.id : null;
+
+  return { items, nextCursor };
 }
