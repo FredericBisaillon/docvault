@@ -1,0 +1,55 @@
+name: API CI
+
+on:
+  push:
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/api-ci.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/api-ci.yml"
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: docvault
+          POSTGRES_PASSWORD: docvault
+          POSTGRES_DB: docvault
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U docvault -d docvault"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run API tests
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgres://docvault:docvault@localhost:5432/docvault
+          NODE_ENV: test
+        run: pnpm test:ci
