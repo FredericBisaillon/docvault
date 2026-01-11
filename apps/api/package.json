@@ -12,8 +12,10 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
-  "test:watch": "vitest",
-  "test:db": "pnpm db:up && pnpm db:reset && vitest run"
+    "test:watch": "vitest",
+    "test:db": "pnpm db:up && pnpm db:reset && vitest run",
+    "db:reset:ci": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database();\" -c \"DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;\" && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/001_init.sql && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/seed.sql",
+    "test:ci": "pnpm db:reset:ci && vitest run"
   },
   "dependencies": {
     "@fastify/swagger": "^9.6.1",
@@ -31,5 +33,4 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
-
 }
