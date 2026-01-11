@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "pnpm db:up && pnpm db:reset && vitest run",
-    "db:reset:ci": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -c \"DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;\" && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/001_init.sql && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/seed.sql",
+    "db:reset:ci": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -c \"DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;\" && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/001_init.sql && -f migrations/002_api_keys.sql && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/seed.sql",
     "test:ci": "pnpm db:reset:ci && vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -5,6 +5,17 @@ INSERT INTO users (email, display_name)
 VALUES ('fred@example.com', 'Fred')
 ON CONFLICT (email) DO NOTHING;
 
+-- DEV API KEY (plain): devkey_fred
+INSERT INTO api_keys (user_id, key_hash, label, scopes)
+SELECT
+  u.id,
+  encode(digest('devkey_fred', 'sha256'), 'hex'),
+  'dev seed key',
+  ARRAY['documents:read','documents:write']
+FROM users u
+WHERE u.email = 'fred@example.com'
+ON CONFLICT (key_hash) DO NOTHING;
+
 -- Create a sample doc + version for Fred
 WITH u AS (
   SELECT id FROM users WHERE email = 'fred@example.com'

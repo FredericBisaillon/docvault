@@ -17,6 +17,8 @@ SQL
 
 echo "==> Applying migrations..."
 docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" < migrations/001_init.sql
+docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" < migrations/003_api_keys.sql
+
 
 echo "==> Seeding database..."
 docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" < migrations/seed.sql
