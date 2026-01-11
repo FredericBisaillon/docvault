@@ -1,4 +1,3 @@
-import type { PoolClient } from "pg";
 import { pool } from "../db/pool.js";
 import type { Document, DocumentVersion } from "../db/types.js";
 

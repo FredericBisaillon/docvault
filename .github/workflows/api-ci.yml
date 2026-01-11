@@ -44,6 +44,15 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        working-directory: apps/api
+        run: pnpm lint
+
+      - name: Typecheck
+        working-directory: apps/api
+        run: pnpm typecheck
+
+
       - name: Install postgres client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 

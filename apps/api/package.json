@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "test:db": "pnpm db:up && pnpm db:reset && vitest run",
     "db:reset:ci": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -c \"DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;\" && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/001_init.sql && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f migrations/seed.sql",
-    "test:ci": "pnpm db:reset:ci && vitest run"
+    "test:ci": "pnpm db:reset:ci && vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@fastify/swagger": "^9.6.1",
@@ -27,10 +29,13 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/node": "^22.15.3",
     "@types/pg": "^8.16.0",
+    "eslint": "^9.39.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0",
     "vitest": "^4.0.16"
   }
 }

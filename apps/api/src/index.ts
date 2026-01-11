@@ -1,7 +1,5 @@
 import "dotenv/config";
 import { buildServer } from "./server.js";
-import { usersRoutes } from "./routes/users.js";
-import { documentsRoutes } from "./routes/documents.js";
 
 
 const PORT = Number(process.env.PORT ?? 3001);
