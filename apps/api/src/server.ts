@@ -8,6 +8,12 @@ import { readyRoutes } from "./routes/ready.js";
 import { usersRoutes } from "./routes/users.js";
 import { documentsRoutes } from "./routes/documents.js";
 
+declare module "fastify" {
+  interface FastifyRequest {
+    user?: { id: string };
+  }
+}
+
 export function buildServer() {
   const app = Fastify({ logger: true }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -18,7 +24,6 @@ export function buildServer() {
         details: (err as any).validation,
       });
     }
-
     req.log.error(err);
     return reply.code(500).send({ error: "internal_error" });
   });
@@ -38,7 +43,55 @@ export function buildServer() {
     uiConfig: { docExpansion: "list" },
   });
 
-  // routes
+
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  function pathOnly(url: string) {
+    return url.split("?")[0] ?? url;
+  }
+
+  function isPublicRoute(path: string, method: string) {
+    // Public infra
+    if (path.startsWith("/health") || path.startsWith("/ready") || path.startsWith("/docs")) {
+      return true;
+    }
+
+    // Signup public
+    if (method === "POST" && path === "/users") {
+      return true;
+    }
+
+    return false;
+  }
+
+  app.decorateRequest("user", undefined);
+
+  app.addHook("preHandler", async (req, reply) => {
+    const path = pathOnly(req.url);
+
+    if (isPublicRoute(path, req.method)) return;
+
+    const userId = req.headers["x-user-id"];
+
+    if (!userId || typeof userId !== "string") {
+      return reply.code(401).send({
+        error: "AUTH_REQUIRED",
+        message: "Missing x-user-id header",
+      });
+    }
+
+    if (!UUID_RE.test(userId)) {
+      return reply.code(401).send({
+        error: "INVALID_AUTH",
+        message: "Invalid x-user-id (must be UUID)",
+      });
+    }
+
+    req.user = { id: userId };
+  });
+
+
   app.register(healthRoutes);
   app.register(readyRoutes);
   app.register(usersRoutes);
