@@ -36,6 +36,76 @@ DocVault is a CV-grade backend project: a versioned document API with a strong f
 - **Migrations**: SQL-first migrations (`migrations/*.sql`)
 - **Testing**: Vitest (DB integration tests)
 
+## Architecture
+
+```text
+Request
+  |
+  | 1) Fastify route match (TypeBox schema validation)
+  v
+Fastify Route Handler
+  |
+  | 2) preHandler auth (dev-only)
+  |    - requires x-user-id
+  |    - validates UUID
+  |    - injects req.user.id
+  v
+Repository / DAL
+  |
+  | 3) DB access via pg pool
+  |    - queries always scoped by owner_id
+  |    - anti-leak: non-owned doc => 404
+  |    - versioning uses transaction + row lock
+  v
+PostgreSQL
+```
+
+## Database Schema (simplified)
+
+```text
+┌──────────────────────┐
+│        users         │
+│──────────────────────│
+│ id (uuid, pk)        │
+│ email (unique)       │
+│ display_name         │
+│ created_at           │
+│ updated_at           │
+└───────────┬──────────┘
+            │ 1
+            │
+            │ N
+┌───────────▼──────────┐
+│      documents       │
+│──────────────────────│
+│ id (uuid, pk)        │
+│ owner_id (fk → users.id)
+│ title                │
+│ is_archived          │
+│ created_at           │
+│ updated_at           │
+└───────────┬──────────┘
+            │ 1
+            │
+            │ N
+┌───────────▼──────────┐
+│  document_versions   │
+│──────────────────────│
+│ id (uuid, pk)        │
+│ document_id (fk → documents.id)
+│ version_number       │
+│ content              │
+│ created_at           │
+└──────────────────────┘
+```
+
+**Notes**
+- Each document belongs to exactly one user (`owner_id`)
+- A document has multiple immutable versions
+- Version numbers are incremented safely using transactions and row-level locks
+- Ownership is enforced at query level (`owner_id` scoping)
+
+
 ## Repository Structure
 
 - `apps/api` — Fastify API service
