@@ -1,135 +1,105 @@
-# Turborepo starter
+# DocVault
 
-This Turborepo starter is maintained by the Turborepo core team.
+DocVault is a CV-grade backend project: a versioned document API with a strong focus on clean architecture, correctness, and security fundamentals (auth, ownership, anti-leak), backed by PostgreSQL and tested with real DB integration tests.
 
-## Using this example
+## Features
 
-Run the following command:
+- **Users**
+  - Create users (signup)
+  - List documents for a user (self-only access control)
+- **Documents**
+  - Create a document with **version 1**
+  - Read latest version
+  - List versions
+  - Append new versions with safe version increments
+  - Archive / unarchive
+  - Rename document title
+  - List documents for authenticated user (cursor pagination)
+- **Security (dev-only auth)**
+  - Auth via `x-user-id` header (UUID validation)
+  - Ownership enforced server-side (no `ownerId` in request bodies)
+  - Anti-leak behavior on document access (returns 404 when not owned)
+  - `GET /users/:id/documents` is **self-only** (403 if not the same user)
+- **API documentation**
+  - OpenAPI (Swagger) generated from TypeBox schemas
+  - Swagger UI available at `/docs`
+- **Tests**
+  - Vitest integration tests hitting a real Postgres DB (no mocks)
+  - Covers auth, access control, listing, renaming, versioning
 
-```sh
-npx create-turbo@latest
+## Tech Stack
+
+- **Monorepo**: Turborepo + pnpm
+- **Backend**: Node.js 20, TypeScript, Fastify
+- **Validation & OpenAPI**: TypeBox + Swagger
+- **Database**: PostgreSQL
+- **Migrations**: SQL-first migrations (`migrations/*.sql`)
+- **Testing**: Vitest (DB integration tests)
+
+## Repository Structure
+
+- `apps/api` — Fastify API service
+- `apps/api/migrations` — SQL migrations + seed
+- `apps/api/src/routes` — HTTP routes
+- `apps/api/src/repositories` — DB access layer (SQL queries via `pg`)
+- `apps/api/src/__tests__` — integration tests (real DB)
+- `docs/adr` — Architecture Decision Records
+
+## Quick Start
+
+### 1) Install dependencies
+```bash
+pnpm install
 ```
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+### 2) Start Postgres (local)
+```bash
+pnpm --filter api db:up
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+### 3) Reset DB (migrations + seed)
+```bash
+pnpm --filter api db:reset
 ```
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+### 4) Start the API
+```bash
+pnpm --filter api dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+The API will be available at:
+- http://localhost:3001
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+Swagger UI:
+- http://localhost:3001/docs
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## Run tests
 
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+### Local DB integration tests
+```bash
+pnpm --filter api test:db
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+## Authentication (dev-only)
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+This project currently uses a **dev-only auth mechanism** for simplicity:
 
+- Send the header: `x-user-id: <uuid>`
+- Requests without this header (or invalid UUID) are rejected with 401
+- `POST /users` is public
+
+Example:
+```bash
+curl -s -X POST http://localhost:3001/documents \
+  -H "content-type: application/json" \
+  -H "x-user-id: <YOUR-USER-UUID>" \
+  -d '{"title":"Doc","content":"Hello"}'
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
+## Notes
 
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+This project is designed as a strong backend portfolio piece:
+- SQL-first migrations
+- strict ownership and anti-leak access control
+- real DB integration tests
+- OpenAPI-driven schemas and documentation
